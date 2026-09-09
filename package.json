@@ -1,0 +1,7 @@
+{
+  "name": "itrustld-payment-integration-test",
+  "private": true,
+  "scripts": {
+    "dev": "npx --yes serve . -p 5000"
+  }
+}

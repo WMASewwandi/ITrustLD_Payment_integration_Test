@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iTrustLD Payment Gateway Test</title>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: Segoe UI, system-ui, sans-serif; background: #0b1020; color: #e8ecf7; margin: 0; }
+    main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 64px; }
+    h1 { font-size: 1.6rem; margin: 0 0 8px; }
+    p.sub { color: #9aa3b8; margin: 0 0 24px; }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .grid > section { min-width: 0; }
+    section { background: #141a2e; border: 1px solid #2a3354; border-radius: 16px; padding: 18px; }
+    h2 { margin: 0 0 12px; font-size: 1.05rem; }
+    label { display: block; font-size: 12px; color: #9aa3b8; margin: 10px 0 4px; }
+    input, select, textarea { width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid #3a456c; background: #0b1020; color: #fff; padding: 9px 10px; }
+    button { margin-top: 14px; border: 0; border-radius: 10px; background: #0d9f1b; color: #fff; font-weight: 700; padding: 10px 14px; cursor: pointer; }
+    button.secondary { background: #2a3354; margin-left: 8px; }
+    pre {
+      background: #0b1020;
+      border: 1px solid #2a3354;
+      border-radius: 10px;
+      padding: 12px;
+      overflow: auto;
+      font-size: 12px;
+      max-height: 160px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .creds { margin-bottom: 18px; }
+    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>iTrustLD payment gateway test</h1>
+    <p class="sub">Creates a signed checkout link with method, platform ID, currency, and amount. Customer logs in, lands on proof step 3, picks a payment option, and uploads a slip.</p>
+    <section id="returnBox" class="creds" hidden>
+      <h2>Returned from iTrustLD</h2>
+      <pre id="returnOut">{}</pre>
+    </section>
+
+    <section class="creds">
+      <h2>API credentials</h2>
+      <label>API base</label>
+      <input id="apiBase" value="https://api.itrustld.com/api/v1" />
+      <label>X-API-Key</label>
+      <input id="apiKey" value="itrustld_partner_dev_key" />
+      <label>X-API-Secret</label>
+      <input id="apiSecret" value="itrustld_partner_dev_secret" />
+      <label>Return URL</label>
+      <input id="returnUrl" value="http://localhost:5000/" />
+      <div class="row">
+        <button type="button" id="loadCatalog">Reload methods &amp; rates</button>
+      </div>
+    </section>
+
+    <div class="grid">
+      <section>
+        <h2>Deposit checkout</h2>
+        <label>Top-up method</label>
+        <select id="d_method"><option value="">Loading…</option></select>
+        <label>Platform ID</label>
+        <input id="d_topup_account_id" value="12345678" />
+        <label>Currency</label>
+        <select id="d_currency"><option value="USD">USD</option></select>
+        <label>Amount (USD)</label>
+        <input id="d_deposit_amount" type="number" value="50" />
+        <button type="button" id="createDeposit">Create deposit login URL</button>
+        <pre id="d_out">Waiting…</pre>
+      </section>
+
+      <section>
+        <h2>Withdrawal checkout</h2>
+        <label>Cash-out method</label>
+        <select id="w_method"><option value="">Loading…</option></select>
+        <label>Platform ID</label>
+        <input id="w_cashout_account_id" value="12345678" />
+        <label>Currency</label>
+        <select id="w_currency"><option value="USD">USD</option></select>
+        <label>Amount (USD)</label>
+        <input id="w_cashout_amount" type="number" value="50" />
+        <button type="button" id="createWithdrawal">Create withdrawal login URL</button>
+        <pre id="w_out">Waiting…</pre>
+      </section>
+    </div>
+
+    <section style="margin-top:16px">
+      <h2>Catalog</h2>
+      <pre id="catalog">Loading methods &amp; rates…</pre>
+    </section>
+  </main>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    let catalog = null;
+
+    const returned = Object.fromEntries(new URLSearchParams(location.search).entries());
+    if (Object.keys(returned).length) {
+      $("returnBox").hidden = false;
+      $("returnOut").textContent = JSON.stringify(returned, null, 2);
+    }
+
+    function headers() {
+      return {
+        "Content-Type": "application/json",
+        "X-API-Key": $("apiKey").value.trim(),
+        "X-API-Secret": $("apiSecret").value.trim(),
+      };
+    }
+
+    async function api(path, options = {}) {
+      const res = await fetch($("apiBase").value.replace(/\/$/, "") + path, {
+        ...options,
+        headers: { ...headers(), ...(options.headers || {}) },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || "Request failed " + res.status);
+      return data;
+    }
+
+    function fillSelect(select, items, placeholder) {
+      select.innerHTML = "";
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = placeholder;
+      select.appendChild(empty);
+      items.forEach((item) => {
+        const opt = document.createElement("option");
+        opt.value = item.value;
+        opt.textContent = item.label;
+        select.appendChild(opt);
+      });
+    }
+
+    function currenciesFor(kind, methodId) {
+      const rows =
+        kind === "deposit"
+          ? (catalog?.deposit_rates || []).filter((row) => Number(row.topup_method_id) === Number(methodId))
+          : (catalog?.withdrawal_rates || []).filter((row) => Number(row.cashout_method_id) === Number(methodId));
+      const values = ["USD", ...rows.map((row) => row.payment_option_currency).filter(Boolean)];
+      return [...new Set(values)];
+    }
+
+    function populateCurrencies(selectId, kind, methodId) {
+      const currencies = currenciesFor(kind, methodId);
+      fillSelect(
+        $(selectId),
+        currencies.map((code) => ({ value: code, label: code })),
+        "Select currency",
+      );
+      $(selectId).value = currencies.includes("USD") ? "USD" : currencies[0] || "";
+    }
+
+    function methodLabel(method) {
+      const min = Number(method.minimum_limit);
+      const max = Number(method.maximum_limit);
+      const range =
+        Number.isFinite(min) && Number.isFinite(max) ? " · USD " + min + " – " + max : "";
+      return method.name + " (#" + method.id + ")" + range;
+    }
+
+    function populateDepositMethods() {
+      const methods = (catalog?.topup_methods || []).filter((method) =>
+        (catalog?.deposit_rates || []).some((row) => Number(row.topup_method_id) === Number(method.id)),
+      );
+      fillSelect(
+        $("d_method"),
+        methods.map((method) => ({ value: method.id, label: methodLabel(method) })),
+        methods.length ? "Select top-up method" : "No deposit methods with rates",
+      );
+      if (methods[0]) {
+        $("d_method").value = String(methods[0].id);
+        populateCurrencies("d_currency", "deposit", methods[0].id);
+      } else {
+        fillSelect($("d_currency"), [], "No currencies");
+      }
+    }
+
+    function populateWithdrawalMethods() {
+      const methods = (catalog?.cashout_methods || []).filter((method) =>
+        (catalog?.withdrawal_rates || []).some((row) => Number(row.cashout_method_id) === Number(method.id)),
+      );
+      fillSelect(
+        $("w_method"),
+        methods.map((method) => ({ value: method.id, label: methodLabel(method) })),
+        methods.length ? "Select cash-out method" : "No cash-out methods with rates",
+      );
+      if (methods[0]) {
+        $("w_method").value = String(methods[0].id);
+        populateCurrencies("w_currency", "withdrawal", methods[0].id);
+      } else {
+        fillSelect($("w_currency"), [], "No currencies");
+      }
+    }
+
+    async function loadCatalog() {
+      $("catalog").textContent = "Loading…";
+      try {
+        catalog = await api("/partner-pay/catalog");
+        $("catalog").textContent = JSON.stringify(catalog, null, 2);
+        populateDepositMethods();
+        populateWithdrawalMethods();
+      } catch (err) {
+        catalog = null;
+        $("catalog").textContent = err.message;
+        fillSelect($("d_method"), [], "Catalog failed to load");
+        fillSelect($("w_method"), [], "Catalog failed to load");
+        fillSelect($("d_currency"), [], "Catalog failed to load");
+        fillSelect($("w_currency"), [], "Catalog failed to load");
+      }
+    }
+
+    $("loadCatalog").onclick = loadCatalog;
+    $("d_method").onchange = () => populateCurrencies("d_currency", "deposit", $("d_method").value);
+    $("w_method").onchange = () => populateCurrencies("w_currency", "withdrawal", $("w_method").value);
+
+    $("createDeposit").onclick = async () => {
+      $("d_out").textContent = "Creating…";
+      try {
+        if (!$("d_method").value) throw new Error("Select a top-up method.");
+        const data = await api("/partner-pay/deposits", {
+          method: "POST",
+          body: JSON.stringify({
+            return_url: $("returnUrl").value,
+            topup_method_id: Number($("d_method").value),
+            platform_id: $("d_topup_account_id").value,
+            currency: $("d_currency").value,
+            amount: Number($("d_deposit_amount").value),
+          }),
+        });
+        $("d_out").textContent = JSON.stringify(data, null, 2);
+        if (data.login_url) window.open(data.login_url, "_blank");
+      } catch (err) {
+        $("d_out").textContent = err.message;
+      }
+    };
+
+    $("createWithdrawal").onclick = async () => {
+      $("w_out").textContent = "Creating…";
+      try {
+        if (!$("w_method").value) throw new Error("Select a cash-out method.");
+        const data = await api("/partner-pay/withdrawals", {
+          method: "POST",
+          body: JSON.stringify({
+            return_url: $("returnUrl").value,
+            cashout_method_id: Number($("w_method").value),
+            platform_id: $("w_cashout_account_id").value,
+            currency: $("w_currency").value,
+            amount: Number($("w_cashout_amount").value),
+          }),
+        });
+        $("w_out").textContent = JSON.stringify(data, null, 2);
+        if (data.login_url) window.open(data.login_url, "_blank");
+      } catch (err) {
+        $("w_out").textContent = err.message;
+      }
+    };
+
+    loadCatalog();
+  </script>
+</body>
+</html>
