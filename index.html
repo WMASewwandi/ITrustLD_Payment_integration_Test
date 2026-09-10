@@ -59,6 +59,7 @@
       <h2>API credentials</h2>
       <label>API base</label>
       <input id="apiBase" value="https://api.itrustld.com/api/v1" />
+      <!-- <input id="apiBase" value="http://localhost:4000/api/v1" /> -->
       <label>X-API-Key</label>
       <input id="apiKey" value="itrustld_partner_dev_key" />
       <label>X-API-Secret</label>
@@ -122,7 +123,8 @@
 
     function sampleDeposit(method) {
       return {
-        return_url: "http://localhost:5000/",
+        return_url: "https://i-trust-ld-payment-integration-test.vercel.app/",
+        email: "customer@example.com",
         topup_method_id: Number(method.id),
         platform_id: samplePlatformId(method.name),
         currency: "USD",
@@ -132,7 +134,8 @@
 
     function sampleWithdrawal(method) {
       return {
-        return_url: "http://localhost:5000/",
+        return_url: "https://i-trust-ld-payment-integration-test.vercel.app/",
+        email: "customer@example.com",
         cashout_method_id: Number(method.id),
         platform_id: samplePlatformId(method.name),
         currency: "USD",
