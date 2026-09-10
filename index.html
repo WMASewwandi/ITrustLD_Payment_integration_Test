@@ -8,21 +8,24 @@
     :root { color-scheme: dark; }
     body { font-family: Segoe UI, system-ui, sans-serif; background: #0b1020; color: #e8ecf7; margin: 0; }
     main { max-width: 1100px; margin: 0 auto; padding: 32px 20px 64px; }
-    h1 { font-size: 1.6rem; margin: 0 0 8px; }
+    h1 { font-size: 1.5rem; margin: 0 0 8px; }
     p.sub { color: #9aa3b8; margin: 0 0 24px; }
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 16px;
-      align-items: start;
-    }
-    .grid > section { min-width: 0; }
-    section { background: #141a2e; border: 1px solid #2a3354; border-radius: 16px; padding: 18px; }
-    h2 { margin: 0 0 12px; font-size: 1.05rem; }
+    section { background: #141a2e; border: 1px solid #2a3354; border-radius: 16px; padding: 18px; margin-bottom: 16px; }
+    h2 { margin: 0 0 12px; font-size: 1.1rem; }
+    h3 { margin: 0 0 8px; font-size: 0.95rem; color: #c9d0e3; }
     label { display: block; font-size: 12px; color: #9aa3b8; margin: 10px 0 4px; }
-    input, select, textarea { width: 100%; box-sizing: border-box; border-radius: 10px; border: 1px solid #3a456c; background: #0b1020; color: #fff; padding: 9px 10px; }
-    button { margin-top: 14px; border: 0; border-radius: 10px; background: #0d9f1b; color: #fff; font-weight: 700; padding: 10px 14px; cursor: pointer; }
-    button.secondary { background: #2a3354; margin-left: 8px; }
+    input, textarea {
+      width: 100%;
+      box-sizing: border-box;
+      border-radius: 10px;
+      border: 1px solid #3a456c;
+      background: #0b1020;
+      color: #fff;
+      padding: 9px 10px;
+      font: 12px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+    textarea { min-height: 180px; resize: vertical; }
+    button { margin-top: 10px; border: 0; border-radius: 10px; background: #0d9f1b; color: #fff; font-weight: 700; padding: 9px 14px; cursor: pointer; }
     pre {
       background: #0b1020;
       border: 1px solid #2a3354;
@@ -30,26 +33,29 @@
       padding: 12px;
       overflow: auto;
       font-size: 12px;
-      max-height: 160px;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       word-break: break-word;
+      min-height: 48px;
     }
-    .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .creds { margin-bottom: 18px; }
-    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+    .path { font-size: 13px; color: #7ee08a; margin-bottom: 8px; }
+    .muted { color: #9aa3b8; font-size: 13px; }
+    .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+    .api { min-width: 0; }
+    @media (max-width: 800px) { .pair { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
   <main>
-    <h1>iTrustLD payment gateway test</h1>
-    <p class="sub">Creates a signed checkout link with method, platform ID, currency, and amount. Customer logs in, lands on proof step 3, picks a payment option, and uploads a slip.</p>
-    <section id="returnBox" class="creds" hidden>
+    <h1>iTrustLD payment gateway</h1>
+    <p class="sub">One card per method. Edit the JSON payload, then call deposit and/or withdrawal.</p>
+
+    <section id="returnBox" hidden>
       <h2>Returned from iTrustLD</h2>
       <pre id="returnOut">{}</pre>
     </section>
 
-    <section class="creds">
+    <section>
       <h2>API credentials</h2>
       <label>API base</label>
       <input id="apiBase" value="https://api.itrustld.com/api/v1" />
@@ -57,51 +63,14 @@
       <input id="apiKey" value="itrustld_partner_dev_key" />
       <label>X-API-Secret</label>
       <input id="apiSecret" value="itrustld_partner_dev_secret" />
-      <label>Return URL</label>
-      <input id="returnUrl" value="http://localhost:5000/" />
-      <div class="row">
-        <button type="button" id="loadCatalog">Reload methods &amp; rates</button>
-      </div>
+      <button type="button" id="reload">Reload methods</button>
+      <p class="muted" id="status">Loading methods…</p>
     </section>
 
-    <div class="grid">
-      <section>
-        <h2>Deposit checkout</h2>
-        <label>Top-up method</label>
-        <select id="d_method"><option value="">Loading…</option></select>
-        <label>Platform ID</label>
-        <input id="d_topup_account_id" value="12345678" />
-        <label>Currency</label>
-        <select id="d_currency"><option value="USD">USD</option></select>
-        <label>Amount (USD)</label>
-        <input id="d_deposit_amount" type="number" value="50" />
-        <button type="button" id="createDeposit">Create deposit login URL</button>
-        <pre id="d_out">Waiting…</pre>
-      </section>
-
-      <section>
-        <h2>Withdrawal checkout</h2>
-        <label>Cash-out method</label>
-        <select id="w_method"><option value="">Loading…</option></select>
-        <label>Platform ID</label>
-        <input id="w_cashout_account_id" value="12345678" />
-        <label>Currency</label>
-        <select id="w_currency"><option value="USD">USD</option></select>
-        <label>Amount (USD)</label>
-        <input id="w_cashout_amount" type="number" value="50" />
-        <button type="button" id="createWithdrawal">Create withdrawal login URL</button>
-        <pre id="w_out">Waiting…</pre>
-      </section>
-    </div>
-
-    <section style="margin-top:16px">
-      <h2>Catalog</h2>
-      <pre id="catalog">Loading methods &amp; rates…</pre>
-    </section>
+    <div id="methods"></div>
   </main>
   <script>
     const $ = (id) => document.getElementById(id);
-    let catalog = null;
 
     const returned = Object.fromEntries(new URLSearchParams(location.search).entries());
     if (Object.keys(returned).length) {
@@ -117,8 +86,12 @@
       };
     }
 
+    function base() {
+      return $("apiBase").value.replace(/\/$/, "");
+    }
+
     async function api(path, options = {}) {
-      const res = await fetch($("apiBase").value.replace(/\/$/, "") + path, {
+      const res = await fetch(base() + path, {
         ...options,
         headers: { ...headers(), ...(options.headers || {}) },
       });
@@ -127,145 +100,139 @@
       return data;
     }
 
-    function fillSelect(select, items, placeholder) {
-      select.innerHTML = "";
-      const empty = document.createElement("option");
-      empty.value = "";
-      empty.textContent = placeholder;
-      select.appendChild(empty);
-      items.forEach((item) => {
-        const opt = document.createElement("option");
-        opt.value = item.value;
-        opt.textContent = item.label;
-        select.appendChild(opt);
+    function samplePlatformId(methodName) {
+      const name = String(methodName || "").trim().toLowerCase();
+      if (name === "xm") return "12345678";
+      if (name === "skrill") return "customer@skrill.com";
+      if (name === "neteller") return "customer@neteller.com";
+      if (name === "binance" || name === "crypto") return "customer@binance.com";
+      if (name === "perfect money") return "U12345678";
+      return "12345678";
+    }
+
+    function sampleAmount(method) {
+      const min = Number(method?.minimum_limit);
+      const max = Number(method?.maximum_limit);
+      if (Number.isFinite(min) && Number.isFinite(max) && min > 0) {
+        if (50 >= min && 50 <= max) return 50;
+        return min;
+      }
+      return 50;
+    }
+
+    function sampleDeposit(method) {
+      return {
+        return_url: "http://localhost:5000/",
+        topup_method_id: Number(method.id),
+        platform_id: samplePlatformId(method.name),
+        currency: "USD",
+        amount: sampleAmount(method),
+      };
+    }
+
+    function sampleWithdrawal(method) {
+      return {
+        return_url: "http://localhost:5000/",
+        cashout_method_id: Number(method.id),
+        platform_id: samplePlatformId(method.name),
+        currency: "USD",
+        amount: sampleAmount(method),
+      };
+    }
+
+    function groupByName(catalog) {
+      const map = new Map();
+      function bucket(name) {
+        const key = String(name || "").trim() || "Unknown";
+        if (!map.has(key.toLowerCase())) {
+          map.set(key.toLowerCase(), { name: key, deposit: null, withdrawal: null });
+        }
+        return map.get(key.toLowerCase());
+      }
+      (catalog.topup_methods || []).forEach((method) => {
+        bucket(method.name).deposit = method;
+      });
+      (catalog.cashout_methods || []).forEach((method) => {
+        bucket(method.name).withdrawal = method;
+      });
+      return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    function rangeLabel(method) {
+      const min = Number(method.minimum_limit);
+      const max = Number(method.maximum_limit);
+      return Number.isFinite(min) && Number.isFinite(max) ? " · USD " + min + " – " + max : "";
+    }
+
+    function apiBlock(kind, method) {
+      const isDeposit = kind === "deposit";
+      const path = isDeposit ? "/partner-pay/deposits" : "/partner-pay/withdrawals";
+      const payload = isDeposit ? sampleDeposit(method) : sampleWithdrawal(method);
+      const key = (isDeposit ? "d" : "w") + "-" + method.id;
+      return `
+        <div class="api">
+          <h3>${isDeposit ? "Deposit" : "Withdrawal"}${rangeLabel(method)}</h3>
+          <div class="path">POST ${base()}${path}</div>
+          <textarea id="payload-${key}">${JSON.stringify(payload, null, 2)}</textarea>
+          <button type="button" data-kind="${kind}" data-id="${method.id}">Call this API</button>
+          <pre id="out-${key}">Waiting…</pre>
+        </div>
+      `;
+    }
+
+    function render(catalog) {
+      const groups = groupByName(catalog);
+      if (!groups.length) {
+        $("methods").innerHTML = "<section><p class='muted'>No methods found.</p></section>";
+        return;
+      }
+      $("methods").innerHTML = groups
+        .map((group) => {
+          const bits = [];
+          if (group.deposit) bits.push(apiBlock("deposit", group.deposit));
+          if (group.withdrawal) bits.push(apiBlock("withdrawal", group.withdrawal));
+          return `<section><h2>${group.name}</h2><div class="pair">${bits.join("")}</div></section>`;
+        })
+        .join("");
+
+      $("methods").querySelectorAll("button[data-kind]").forEach((btn) => {
+        btn.onclick = () => callApi(btn.dataset.kind, btn.dataset.id);
       });
     }
 
-    function currenciesFor(kind, methodId) {
-      const rows =
-        kind === "deposit"
-          ? (catalog?.deposit_rates || []).filter((row) => Number(row.topup_method_id) === Number(methodId))
-          : (catalog?.withdrawal_rates || []).filter((row) => Number(row.cashout_method_id) === Number(methodId));
-      const values = ["USD", ...rows.map((row) => row.payment_option_currency).filter(Boolean)];
-      return [...new Set(values)];
-    }
-
-    function populateCurrencies(selectId, kind, methodId) {
-      const currencies = currenciesFor(kind, methodId);
-      fillSelect(
-        $(selectId),
-        currencies.map((code) => ({ value: code, label: code })),
-        "Select currency",
-      );
-      $(selectId).value = currencies.includes("USD") ? "USD" : currencies[0] || "";
-    }
-
-    function methodLabel(method) {
-      const min = Number(method.minimum_limit);
-      const max = Number(method.maximum_limit);
-      const range =
-        Number.isFinite(min) && Number.isFinite(max) ? " · USD " + min + " – " + max : "";
-      return method.name + " (#" + method.id + ")" + range;
-    }
-
-    function populateDepositMethods() {
-      const methods = (catalog?.topup_methods || []).filter((method) =>
-        (catalog?.deposit_rates || []).some((row) => Number(row.topup_method_id) === Number(method.id)),
-      );
-      fillSelect(
-        $("d_method"),
-        methods.map((method) => ({ value: method.id, label: methodLabel(method) })),
-        methods.length ? "Select top-up method" : "No deposit methods with rates",
-      );
-      if (methods[0]) {
-        $("d_method").value = String(methods[0].id);
-        populateCurrencies("d_currency", "deposit", methods[0].id);
-      } else {
-        fillSelect($("d_currency"), [], "No currencies");
-      }
-    }
-
-    function populateWithdrawalMethods() {
-      const methods = (catalog?.cashout_methods || []).filter((method) =>
-        (catalog?.withdrawal_rates || []).some((row) => Number(row.cashout_method_id) === Number(method.id)),
-      );
-      fillSelect(
-        $("w_method"),
-        methods.map((method) => ({ value: method.id, label: methodLabel(method) })),
-        methods.length ? "Select cash-out method" : "No cash-out methods with rates",
-      );
-      if (methods[0]) {
-        $("w_method").value = String(methods[0].id);
-        populateCurrencies("w_currency", "withdrawal", methods[0].id);
-      } else {
-        fillSelect($("w_currency"), [], "No currencies");
-      }
-    }
-
-    async function loadCatalog() {
-      $("catalog").textContent = "Loading…";
+    async function callApi(kind, methodId) {
+      const isDeposit = kind === "deposit";
+      const path = isDeposit ? "/partner-pay/deposits" : "/partner-pay/withdrawals";
+      const key = (isDeposit ? "d" : "w") + "-" + methodId;
+      const out = $("out-" + key);
+      out.textContent = "Calling…";
       try {
-        catalog = await api("/partner-pay/catalog");
-        $("catalog").textContent = JSON.stringify(catalog, null, 2);
-        populateDepositMethods();
-        populateWithdrawalMethods();
-      } catch (err) {
-        catalog = null;
-        $("catalog").textContent = err.message;
-        fillSelect($("d_method"), [], "Catalog failed to load");
-        fillSelect($("w_method"), [], "Catalog failed to load");
-        fillSelect($("d_currency"), [], "Catalog failed to load");
-        fillSelect($("w_currency"), [], "Catalog failed to load");
-      }
-    }
-
-    $("loadCatalog").onclick = loadCatalog;
-    $("d_method").onchange = () => populateCurrencies("d_currency", "deposit", $("d_method").value);
-    $("w_method").onchange = () => populateCurrencies("w_currency", "withdrawal", $("w_method").value);
-
-    $("createDeposit").onclick = async () => {
-      $("d_out").textContent = "Creating…";
-      try {
-        if (!$("d_method").value) throw new Error("Select a top-up method.");
-        const data = await api("/partner-pay/deposits", {
+        const payload = JSON.parse($("payload-" + key).value);
+        const data = await api(path, {
           method: "POST",
-          body: JSON.stringify({
-            return_url: $("returnUrl").value,
-            topup_method_id: Number($("d_method").value),
-            platform_id: $("d_topup_account_id").value,
-            currency: $("d_currency").value,
-            amount: Number($("d_deposit_amount").value),
-          }),
+          body: JSON.stringify(payload),
         });
-        $("d_out").textContent = JSON.stringify(data, null, 2);
+        out.textContent = JSON.stringify(data, null, 2);
         if (data.login_url) window.open(data.login_url, "_blank");
       } catch (err) {
-        $("d_out").textContent = err.message;
+        out.textContent = err.message;
       }
-    };
+    }
 
-    $("createWithdrawal").onclick = async () => {
-      $("w_out").textContent = "Creating…";
+    async function load() {
+      $("status").textContent = "Loading methods…";
+      $("methods").innerHTML = "";
       try {
-        if (!$("w_method").value) throw new Error("Select a cash-out method.");
-        const data = await api("/partner-pay/withdrawals", {
-          method: "POST",
-          body: JSON.stringify({
-            return_url: $("returnUrl").value,
-            cashout_method_id: Number($("w_method").value),
-            platform_id: $("w_cashout_account_id").value,
-            currency: $("w_currency").value,
-            amount: Number($("w_cashout_amount").value),
-          }),
-        });
-        $("w_out").textContent = JSON.stringify(data, null, 2);
-        if (data.login_url) window.open(data.login_url, "_blank");
+        const catalog = await api("/partner-pay/catalog");
+        $("status").textContent = "Edit the payload JSON on each API. Headers: X-API-Key + X-API-Secret.";
+        render(catalog);
       } catch (err) {
-        $("w_out").textContent = err.message;
+        $("status").textContent = err.message;
       }
-    };
+    }
 
-    loadCatalog();
+    $("reload").onclick = load;
+    load();
   </script>
 </body>
 </html>
