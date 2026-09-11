@@ -125,7 +125,7 @@
       return {
         return_url: "https://i-trust-ld-payment-integration-test.vercel.app/",
         email: "customer@example.com",
-        topup_method_id: Number(method.id),
+        topup_method_guid: String(method.guid || ""),
         platform_id: samplePlatformId(method.name),
         currency: "USD",
         amount: sampleAmount(method),
@@ -136,7 +136,7 @@
       return {
         return_url: "https://i-trust-ld-payment-integration-test.vercel.app/",
         email: "customer@example.com",
-        cashout_method_id: Number(method.id),
+        cashout_method_guid: String(method.guid || ""),
         platform_id: samplePlatformId(method.name),
         currency: "USD",
         amount: sampleAmount(method),
@@ -171,13 +171,13 @@
       const isDeposit = kind === "deposit";
       const path = isDeposit ? "/partner-pay/deposits" : "/partner-pay/withdrawals";
       const payload = isDeposit ? sampleDeposit(method) : sampleWithdrawal(method);
-      const key = (isDeposit ? "d" : "w") + "-" + method.id;
+      const key = (isDeposit ? "d" : "w") + "-" + method.guid;
       return `
         <div class="api">
           <h3>${isDeposit ? "Deposit" : "Withdrawal"}${rangeLabel(method)}</h3>
           <div class="path">POST ${base()}${path}</div>
           <textarea id="payload-${key}">${JSON.stringify(payload, null, 2)}</textarea>
-          <button type="button" data-kind="${kind}" data-id="${method.id}">Call this API</button>
+          <button type="button" data-kind="${kind}" data-id="${method.guid}">Call this API</button>
           <pre id="out-${key}">Waiting…</pre>
         </div>
       `;
